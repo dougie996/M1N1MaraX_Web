@@ -38,8 +38,6 @@ GNU General Public License for more details.
 #define INVERSE_LOGIC true  // Use inverse logic for MaraX V2
 #define D7 (13)
 
-#define PUMP_PIN D7  // not used
-
 #define DEBUG false
 // #define PUSH_MESSAGE // Aktivieren um Push Message anstelle von WebServer zu verwenden
 
@@ -101,34 +99,33 @@ void setup() {
   display.display();
   Serial.begin(9600);
   mySerial.begin(9600);
-  mySerial.write(0x11);
+  //mySerial.write(0x11);  // this is XON Flow Control Chr ... do not use. 
 
-  pinMode(PUMP_PIN, INPUT_PULLUP);
   pinMode(LED_BUILTIN, OUTPUT);
   //  digitalWrite(LED_BUILTIN, HIGH);
   delay(1000);
-  //#ifndef PUSH_MESSAGE // Setup Webserver
+  //
+  #ifndef PUSH_MESSAGE // Setup Webserver
+    Serial.println("Connecting");
+    WiFi.begin(ssid, pass);
+    WiFi.hostname("MaraX");
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(1000);
+      Serial.println(".");
+    }
+    Serial.println("WiFi connected");
+    server.begin();  // Starts the Server
+    Serial.println("Server started");
 
-  Serial.println("Connecting");
-  WiFi.begin(ssid, pass);
-  WiFi.hostname("MaraX");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println(".");
-  }
-  Serial.println("WiFi connected");
-  server.begin();  // Starts the Server
-  Serial.println("Server started");
-
-  Serial.print("IP Address of network: ");  // Prints IP address on Serial Monitor
-  Serial.println(WiFi.localIP());
-  Serial.print("Copy and paste the following URL: https://");
-  Serial.print(WiFi.localIP());
-  Serial.println("/");
-
-  //#endif
+    Serial.print("IP Address of network: ");  // Prints IP address on Serial Monitor
+    Serial.println(WiFi.localIP());
+    Serial.print("Copy and paste the following URL: https://");
+    Serial.print(WiFi.localIP());
+    Serial.println("/");
+  #endif
 
   t.every(1000, updateView);
+  t.every(500, publishWebpage);
 }
 
 void getMaraData() {
@@ -452,28 +449,27 @@ void updateView() {
   }
 
   display.display();
+  //publishWebpage();
 }
 
 void publishWebpage() {
   if (DEBUG == true) {
-    Serial.println("Starting WebServer");
+    Serial.println("Publish Webpage");
   }
   // You may note the Data of your own Module here
   // MAC C8-C9-A3-36-C0-58
   // ESP-36C058
   //
   WiFiClient client = server.available();
-  if (!client) {
-    if (DEBUG == true) {
-      Serial.println("WebServer unavailable");
-    }
-    return;
+  if (!client.available()) {
+    //Serial.println("WebServer - No Client");
+    return; // There is no Client - Nothing to do
   }
-  Serial.println("Waiting for new client");
-  while (!client.available()) {
-    delay(1);
-  }
-
+  //Serial.println("Waiting for new client");
+  //while (!client.available()) {
+  //  delay(1);                 // This does block Webserver!
+  //}
+  Serial.println("Got new client");
   String request = client.readStringUntil('\r');
   Serial.println(request);
   client.flush();
@@ -542,8 +538,8 @@ void publishWebpage() {
   client.println("</body>");
   client.println("</html>");
 
-  delay(10);
-  Serial.println("Client disonnected");
+  delay(1);
+  Serial.println("Client disconnected");
   Serial.println("");
 }
 
@@ -553,5 +549,5 @@ void loop() {
   t.update();
   detectChanges();
   getMaraData();
-  publishWebpage();
+
 }
